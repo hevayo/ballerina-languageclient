@@ -1,7 +1,5 @@
 import {
-    InitializeParams, InitializeRequest, InitializeResult, createProtocolConnection, StreamMessageReader, StreamMessageWriter, ProtocolConnection,
-    WorkDoneProgressBegin, WorkDoneProgressReport, WorkDoneProgressEnd, Trace, DidOpenTextDocumentNotification,
-    DidOpenTextDocumentParams, TextDocumentItem, InitializedNotification, ClientCapabilities
+    InitializeParams, DidOpenTextDocumentParams, ClientCapabilities
 } from 'vscode-languageserver-protocol';
 import * as fs from 'fs';
 
@@ -65,6 +63,7 @@ const capabilities: ClientCapabilities = {
         workspaceFolders: true
     },
     textDocument: {
+        "moniker": {},
         "publishDiagnostics": {
             "relatedInformation": true,
             "versionSupport": false,

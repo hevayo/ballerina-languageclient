@@ -1,7 +1,7 @@
 import { spawn, ChildProcessWithoutNullStreams } from "child_process";
 import {
-    InitializeParams, InitializeRequest, InitializeResult, createProtocolConnection, StreamMessageReader, StreamMessageWriter, ProtocolConnection,
-    WorkDoneProgressBegin, WorkDoneProgressReport, WorkDoneProgressEnd, Trace, DidOpenTextDocumentNotification,
+    InitializeParams, InitializeRequest, InitializeResult, ProtocolConnection,
+    Trace, DidOpenTextDocumentNotification,
     DidOpenTextDocumentParams, TextDocumentItem, InitializedNotification, ShutdownRequest, ExitNotification, PublishDiagnosticsNotification, PublishDiagnosticsParams,
     TextDocumentPositionParams, Location
 } from 'vscode-languageserver-protocol';
@@ -15,12 +15,13 @@ import {
     GetSyntaxTreeResponse, GoToSourceParams, IBallerinaLangClient, RevealRangeParams
 } from './IBallerinaLanguageClient'
 import { BallerinaASTNode, BallerinaEndpoint, BallerinaSourceFragment } from "./ast-models";
+import { LSConnection } from "./LSConnection";
 
 export class BalleriaLanguageClient implements IBallerinaLangClient {
 
     private _id: number = 1;
     private _name: string = "ballerina";
-    private _lsProcess: ChildProcessWithoutNullStreams;
+    private _lsConnection: LSConnection;
     private _clientConnection: ProtocolConnection;
 
     private _ready: any = null;
@@ -31,19 +32,11 @@ export class BalleriaLanguageClient implements IBallerinaLangClient {
     private _diagnosticsReady: any = null;
     private _diagnosticsError: any = null;
 
-    public static load(balHome?: string) {
-        const lsProcess = spawn('bal', ['start-language-server']);
-        return new BalleriaLanguageClient(lsProcess);
-    }
-
     // constructor 
-    private constructor(lsProcess: ChildProcessWithoutNullStreams) {
-        this._lsProcess = lsProcess;
-        this._id = this._lsProcess.pid!;
-        this._clientConnection = createProtocolConnection(
-            new StreamMessageReader(this._lsProcess.stdout),
-            new StreamMessageWriter(this._lsProcess.stdin),
-            new BLCLogger);
+    public constructor(connection: LSConnection) {
+        this._lsConnection = connection;
+        this._id = 1;
+        this._clientConnection = connection.getProtocolConnection();
         this._clientConnection.trace(Trace.Verbose, new BLCTracer());
         this._clientConnection.listen();
         this._onReady = new Promise((resolve, reject) => {
@@ -64,7 +57,7 @@ export class BalleriaLanguageClient implements IBallerinaLangClient {
 
     private initialize() {
         this._clientConnection.sendRequest(InitializeRequest.type, initializeRequest(this._id)).then((result: InitializeResult) => {
-            this._clientConnection.sendNotification(InitializedNotification.type);
+            this._clientConnection.sendNotification(InitializedNotification.type, {});
             this._clientConnection.onNotification(PublishDiagnosticsNotification.type, this.handleDiagnostics);
             this._ready();
         });
@@ -77,11 +70,7 @@ export class BalleriaLanguageClient implements IBallerinaLangClient {
             this._clientConnection.sendNotification(ExitNotification.type);
         });
 
-        return new Promise<void>((resolve, reject) => {
-            this._lsProcess.on("exit", () => {
-                resolve();
-            })
-        });
+        return this._lsConnection.stop();
     }
 
     public didOpen(path: string) {

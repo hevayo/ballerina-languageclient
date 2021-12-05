@@ -1,14 +1,18 @@
-import { doesNotMatch } from 'assert';
 import { BalleriaLanguageClient } from '../index';
 import { file } from '../messages';
-import { StdioConnection } from '../StdioConnection';
+import { WSConnection } from '../WSConnection';
+import { startBallerinaLS } from '../server';
 
-describe('Test Ballerina Language Client Load', () => {
-    const mainFile = __dirname + '/resources/myPackage/main.bal';
+describe('Test Websocket Ballerina Language Client Load', () => {
     let bls: BalleriaLanguageClient;
+    let wsServer;
+    const mainFile = __dirname + '/resources/myPackage/main.bal';
 
     beforeAll(() => {
-        bls = new BalleriaLanguageClient(new StdioConnection(mainFile));
+        startBallerinaLS();
+        return WSConnection.initialize("ws://localhost:9095").then((wsConnection: WSConnection) => {
+            bls = new BalleriaLanguageClient(wsConnection);
+        });
     });
 
     test('Open a file', () => {
@@ -32,6 +36,8 @@ describe('Test Ballerina Language Client Load', () => {
     afterAll(() => {
         return bls.onReady().then(() => {
             return bls.stop();
+        }).catch((e) => {
+            console.log(e);
         });
     });
 
